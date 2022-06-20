@@ -1,9 +1,7 @@
 import random
 import threading
 import socket 
-from PIL import Image
 from tkinter import *
-from PIL import ImageTk, Image
 import time
 import pickle
 from classes import *
@@ -16,12 +14,6 @@ from classes import *
 COLOURS = ["yellow"]#,"red","green","blue"]
 TYPES = ["1","2","3","4","5","6","7","8","9","skip","+2","reverse","1","2","3","4","5","6","7","8","9","skip","+2","reverse","0"]
 SPECIAL = ["+4","wild","+4","wild","+4","wild","+4","wild"]
-
-#connection constants
-
-MSG_ORDER = {0:"hand",1:"numOfCardPerPlayer",2:"playerNum",3:"discardTopCard"}
-
-
 
 # game variables 
 
@@ -97,38 +89,36 @@ def canPlace(card) :
     deckCard = gameVar.discardPile[0]
     print("deck card : {}{} \n player card : {}{}".format(deckCard.colour,deckCard.type,card.colour,card.type))
     print("same type is",deckCard.type == card.type , ", same colour is",deckCard.colour == card.colour)
-    if deckCard.type == card.type or deckCard.colour == card.colour :
+    if deckCard.type == card.type or deckCard.colour == card.colour or card.colour == "":
         return True
     else : 
         return False
 
 def turn(player) :
-    player  = gameVar.players[player]
+    user  = gameVar.players[player]
     turnTaken = False
     while turnTaken == False :
         displayDiscardPile()
-        cardChoiceId = int(input("card id >> "))
+        cardChoiceId = str
+        while cardChoiceId == False :
+            cardChoiceId = reciveMsg(user.conn)
         # check if choice is pick up
         if cardChoiceId == -1 :
-            player.pickUp()
+            user.pickUp()
             turnTaken = True
         else :
             #find chosen card in deck and check if can be played
-            for card in player.hand :
-                if card.id == cardChoiceId :
-                    print("card found")
+            for card in user.hand :
                 if card.id == cardChoiceId and canPlace(card):
-                    player.playCard(card.id)
+                    user.playCard(card.id)
                     turnTaken = True
         if turnTaken == False :   
             print("card not found or cant be placed")
-    displayHand(player)
-    displayDiscardPile()
+            turn(player)
 
 def gameStart() :
     print("game starting")
     time.sleep(2)
-    #makes game variables class
     #genorates deck
     gameVar.deck = gen_deck()
     #hands ou cards
@@ -139,6 +129,14 @@ def gameStart() :
     #take card from deck and put in discard pile
     gameVar.discardPile.append(gameVar.deck[0])
     gameVar.deck.pop(0)
+    # start cycling through turns
+    while anyoneHas0Cards() == False :
+        turn(gameVar.turn)
+
+def anyoneHas0Cards():
+    for person in gameVar.players :
+        if len(person.hand) == 0 :
+            return True
 
 def gameSetup() : 
     global gameVar
@@ -152,29 +150,36 @@ def host() :
     try :
         server.bind((Host,port))
     except :
-        print("finding port")
+        print("finding port...")
         host()
     print("binded server to {}:{}".format(Host,port))
+    play = threading.Thread(target=join,args=(Host,port))
+    play.start()
     global gameVar
-    #while len(players) == 0 :
-    print("listening")
-    print(len(gameVar.players),gameVar.players)
-    server.listen(2)
-    conn , addr = server.accept()
-    print("connected by", addr)
-    tread = threading.Thread(target=handleClient,args=(conn,addr))
-    tread.start()
+    while len(gameVar.players) <= 1 :
+        print("listening")
+        print(len(gameVar.players),gameVar.players)
+        server.listen(2)
+        conn , addr = server.accept()
+        print("connected by", addr)
+        # make thread for new player
+        clientThread = threading.Thread(target=handleClient,args=(conn,addr))
+        clientThread.start()
+        time.sleep(0.1)
     gameStart()
 
-def join() :
-    serverAdress = str(input("join id :"))
+def join(Host="",port="") :
+    connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)    
     name = str(input("name : "))
-    for index,char in enumerate(serverAdress) :
-        if char == ":" :
-            Host = serverAdress[0:index]
-            port = serverAdress[index + 1:]
-            break
-    connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    if Host != "" and port != "" :
+        pass
+    else :
+        serverAdress = str(input("join id :"))
+        for index,char in enumerate(serverAdress) :
+            if char == ":" :
+                Host = serverAdress[0:index]
+                port = serverAdress[index + 1:]
+                break
     try:
         connection.connect((Host,int(port)))
     except:
@@ -184,28 +189,24 @@ def join() :
     sendMsg(name,connection)
     while True:
         data = reciveMsg(connection)
-        for card in data :
-            print(card.colour,card.type,card.id,end=" , ")
-        print("")
+        print(data)
+
 
 
 def handleClient(conn,addr):
     global gameVar
     nick = reciveMsg(conn)
     gameVar.players.append(player(conn,addr,nick))
-    print(gameVar.players)
     print("user:",nick,"joined")
     while True:
         for num,client in enumerate(gameVar.players) :
             if client.name == nick :
-                displayHand(client)
-                msg = [client.hand,]
+                msg = client.hand
                 time.sleep(0.2)
                 sendMsg(msg,conn)
 
 def sendMsg(messsage,conn):
     global card
-    print("pickle, ",messsage)
     messsage = pickle.dumps(messsage)
     conn.sendall(messsage)
 
@@ -216,14 +217,16 @@ def reciveMsg(conn) :
 def identifyUser() :
     usertype = str(input("join or host j/h >> ")) 
     if usertype == "j" :
-        print("join")
         join()
     elif usertype == "h" :
-        print("host")
         host()
     else :
         print("invalid choice please choose again")
         identifyUser()
+
+def constructMsg(client):
+    #     order of data : is turn of player (bool) , player hand (list) , each players card count () , top card on discard pile .
+    msg = []
 
 # ----- establish connection code ------
 gameSetup()

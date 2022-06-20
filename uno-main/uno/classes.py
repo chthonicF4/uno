@@ -1,5 +1,3 @@
-
-from PIL import Image
 from tkinter import *
 from PIL import ImageTk, Image
 
@@ -11,7 +9,7 @@ class card :
         self.colour = str(colour)
         self.type = str(type)
         self.name = str(self.colour + " " + self.type)
-        #self.root = str("assets\\" + self.colour + "_" + self.type + ".png")
+        self.root = str("assets\\" + self.colour + "_" + self.type + ".png")
         #self.img = ImageTk.PhotoImage(Image.open(self.root))
     
     def createLable(self,master):
@@ -23,3 +21,4 @@ class game :
         self.deck = []
         self.players = []
         self.discardPile = []
+        self.turn = 0
