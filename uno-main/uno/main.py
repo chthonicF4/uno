@@ -117,7 +117,9 @@ def turn(player) :
             turn(player)
 
 def gameStart() :
+    global gameVar
     print("game starting")
+    gameVar.gameStart = True
     time.sleep(2)
     #genorates deck
     gameVar.deck = gen_deck()
@@ -132,7 +134,10 @@ def gameStart() :
     # start cycling through turns
     while anyoneHas0Cards() == False :
         turn(gameVar.turn)
-
+        gameVar.turn += 1
+        if gameVar.turn > len(gameVar.players) :
+            gameVar = 0 
+        
 def anyoneHas0Cards():
     for person in gameVar.players :
         if len(person.hand) == 0 :
@@ -198,10 +203,12 @@ def handleClient(conn,addr):
     nick = reciveMsg(conn)
     gameVar.players.append(player(conn,addr,nick))
     print("user:",nick,"joined")
+    while gameVar.gameStart == False :
+        pass
     while True:
         for num,client in enumerate(gameVar.players) :
             if client.name == nick :
-                msg = client.hand
+                msg = constructMsg(num,client)
                 time.sleep(0.2)
                 sendMsg(msg,conn)
 
@@ -224,9 +231,14 @@ def identifyUser() :
         print("invalid choice please choose again")
         identifyUser()
 
-def constructMsg(client):
-    #     order of data : is turn of player (bool) , player hand (list) , each players card count () , top card on discard pile .
-    msg = []
+def constructMsg(num,client):
+    #     order of data : is turn of player (bool) , player hand (list) , each players card count () , top card on discard pile . 
+    try:
+        topCard = gameVar.discardPile[0]
+    except:
+        topCard = ""
+    msg = [ (num == gameVar.turn) , client.hand , gameVar.numOfCardPerPlayer() , topCard ]
+    return  msg
 
 # ----- establish connection code ------
 gameSetup()

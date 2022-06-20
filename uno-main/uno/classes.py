@@ -22,3 +22,13 @@ class game :
         self.players = []
         self.discardPile = []
         self.turn = 0
+        self.gameStart = False
+    
+    def numOfCardPerPlayer(self) :
+        out = []
+        for player in self.players :
+            try :
+                out.append(len(player.hand))
+            except :
+                out.append(0)
+            return out
